@@ -46,6 +46,17 @@ class APITester:
             self.update_auth_header(data["access_token"])
         return data
 
+    def add_new_categories(self, categories: List[str]):
+        print("\n=== Testing Add New Categories ===")
+        response = requests.put(
+            f"{BASE_URL}/users/newcategories",
+            headers=self.headers,
+            json={"newcategories": categories},
+        )
+        print(f"Status Code: {response.status_code}")
+        pprint(response.json())
+        return response.json()
+
     def test_get_current_user(self):
         print("\n=== Testing Get Current User ===")
         response = requests.get(f"{BASE_URL}/users/me", headers=self.headers)
@@ -178,6 +189,12 @@ def main():
 
         # Login
         tester.test_login_user(email, password)
+
+        # Add new categories
+        tester.add_new_categories(["Politics", "Technology", "Health"])
+
+        # Get current user
+        tester.test_get_current_user()
 
         # Test news endpoints
         print("\n=== Testing News Endpoints ===")

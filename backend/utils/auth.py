@@ -40,22 +40,21 @@ def create_access_token(
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
-    return {
-        "user_id": "8fcd0ee6-2ed3-448f-af85-363903c21ea8",
-        "email": "tester_1738230367.598736@example.com",
-        "exp": 1738232168,
-    }
-    print(credentials)
+    # return {
+    #     "user_id": "526e94c6-bfa5-4d35-9d41-a12b023c9aac",
+    #     "email": "tester_1738332636.673776@example.com",
+    #     "exp": 1738232168,
+    # }
+    # print(credentials)
     try:
         token = credentials.credentials
-        print(token)
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(payload)
-        return {
-            "user_id": "8fcd0ee6-2ed3-448f-af85-363903c21ea8",
-            "email": "tester_1738230367.598736@example.com",
-            "exp": 1738232168,
-        }
+        return payload
+        # return {
+        #     "user_id": "8fcd0ee6-2ed3-448f-af85-363903c21ea8",
+        #     "email": "tester_1738230367.598736@example.com",
+        #     "exp": 1738232168,
+        # }
     # payload
     except JWTError:
         raise HTTPException(

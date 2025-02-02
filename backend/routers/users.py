@@ -4,7 +4,13 @@ from datetime import timedelta
 
 from config.database import get_db
 from models.database_models import User
-from schemas.user import UserCreate, UserLogin, UserResponse, Token
+from schemas.user import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    Token,
+    UserNewCategoriesUpdate,
+)
 from utils.auth import (
     verify_token,
     create_access_token,
@@ -12,8 +18,10 @@ from utils.auth import (
     verify_password,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+from typing import List
 
 router = APIRouter(prefix="/users", tags=["users"])
+
 
 @router.post("/register", response_model=UserResponse)
 async def register_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -28,6 +36,7 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+
 @router.post("/login", response_model=Token)
 async def login_user(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -40,24 +49,36 @@ async def login_user(user: UserLogin, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    current_user: dict = Depends(verify_token),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(verify_token), db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+
 @router.delete("/me")
 async def delete_current_user(
-    current_user: dict = Depends(verify_token),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(verify_token), db: Session = Depends(get_db)
 ):
+    print(current_user)
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
     db.commit()
-    return {"message": "User deleted"} 
+    return {"message": "User deleted"}
+
+
+@router.post("/newcategories", response_model=List[str])
+async def update_user_newcategories(
+    categories: UserNewCategoriesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.newcategories = categories.categories_string.split(",")
+    db.commit()
+    return current_user.newcategories

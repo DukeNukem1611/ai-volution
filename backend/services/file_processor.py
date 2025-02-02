@@ -1,61 +1,49 @@
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import logging
-import asyncio
-from sqlalchemy.orm import Session
-from typing import List
-from models.database_models import File as DBFile
-from services.document_analyzer import DocumentAnalyzer
-from services.document_summarizer import DocumentSummarizer
+from typing import List, Dict
+from pathlib import Path
+from utils.parser import UnstructuredParser
+from services.indexer import Indexer
 
 logger = logging.getLogger(__name__)
 
-document_analyzer = DocumentAnalyzer()
-document_summarizer = DocumentSummarizer()
+
+class FileProcessor:
+    """Service to process and index uploaded files"""
+
+    def __init__(self):
+        self.parser = UnstructuredParser()
+        self.indexer = Indexer(collection_name="documents")
+
+    async def process_file(self, file_path: str) -> Dict:
+        """Process and index a file"""
+        try:
+            # Extract text using Unstructured
+            text = await self.parser.extract_text_async(file_path)
+
+            # Index the content
+            metadata = {
+                "filename": Path(file_path).name,
+                "file_path": file_path,
+            }
+
+            await self.indexer.index_document(text, metadata)
+
+            return {
+                "status": "success",
+                "message": f"File {Path(file_path).name} processed and indexed successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing file: {str(e)}")
+            return {"status": "error", "message": f"Error processing file: {str(e)}"}
 
 
-async def process_file(
-    file_path: str, file_id: str, db: Session, categories: List[dict]
-):
-    logger.info(f"Processing file {file_id}")
-    try:
-        analyzer_task = asyncio.create_task(
-            document_analyzer.analyze_document(file_path)
-        )
-        summarizer_task = asyncio.create_task(
-            document_summarizer.analyze_document(
-                file_path, [c["name"] for c in categories]
-            )
-        )
+if __name__ == "__main__":
+    import asyncio
 
-        analyzer_result, summarizer_result = await asyncio.gather(
-            analyzer_task, summarizer_task
-        )
-
-        file = db.query(DBFile).filter(DBFile.id == file_id).first()
-        if file:
-            file.highlighted_filename = os.path.basename(
-                analyzer_result["highlighted_path"]
-            )
-            file.summary = (
-                summarizer_result.full_summary
-                if hasattr(summarizer_result, "full_summary")
-                else str(summarizer_result)
-            )
-            category_name = (
-                summarizer_result.classification.category
-                if hasattr(summarizer_result, "classification")
-                else None
-            )
-
-            for cat in categories:
-                if cat["name"] == category_name:
-                    file.category_id = cat["id"]
-                    logger.info(f"Category id: {cat['id']}")
-                    break
-
-            db.commit()
-
-    except Exception as e:
-        logger.error(f"Error processing file: {str(e)}")
-    finally:
-        db.close()
+    asyncio.run(FileProcessor().process_file("test.pdf"))

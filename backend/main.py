@@ -25,6 +25,7 @@ import logging
 from routers import users, categories, files
 from services.news_service import NewsService
 from models.news_models import NewsResponse
+from services.file_processor import FileProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ app.add_middleware(
 document_analyzer = DocumentAnalyzer()
 document_summarizer = DocumentSummarizer()
 news_service = NewsService()
-
+file_processor = FileProcessor()
 # Include routers
 app.include_router(users.router)
 app.include_router(categories.router)
@@ -123,14 +124,18 @@ async def process_file(
         analyzer_task = asyncio.create_task(
             document_analyzer.analyze_document(file_path)
         )
+
         summarizer_task = asyncio.create_task(
             document_summarizer.analyze_document(
                 file_path, [c["name"] for c in categories]
             )
         )
+        file_processor_task = asyncio.create_task(
+            file_processor.process_file(file_path)
+        )
 
-        analyzer_result, summarizer_result = await asyncio.gather(
-            analyzer_task, summarizer_task
+        analyzer_result, summarizer_result, file_processor_result = (
+            await asyncio.gather(analyzer_task, summarizer_task, file_processor_task)
         )
 
         # Update database with results
@@ -180,9 +185,9 @@ async def get_news(
 
 
 @app.post("/news/reset-history")
-async def reset_news_history(current_user: User = Depends(verify_token)):
+async def reset_news_history(current_user: dict = Depends(verify_token)):
     """Reset the news history for the current user"""
-    news_service.reset_user_history(current_user.id)
+    news_service.reset_user_history(current_user["user_id"])
     return {"message": "News history reset successfully"}
 
 
